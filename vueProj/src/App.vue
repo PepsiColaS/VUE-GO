@@ -8,11 +8,11 @@
             <input type="text" placeholder="Название тура" v-model="tour.title" required />
             <input type="text" placeholder="Описание" v-model="tour.description" required />
             <input type="number" placeholder="Цена в рублях" v-model="tour.price" required />
-            <!-- <input type="file" @change="onFileChange" accept="image/*" required /> -->
           </div>
           <button type="submit">Отправить</button>
           <button type="button" @click="closeModal">Закрыть</button>
         </form>
+
       </div>
   </div>
     
@@ -21,11 +21,12 @@
   </div>
 
   <button class="addTour" @click="showModal = true">Добавить тур</button>
+
   <div class="tourBlock">
     <div class="tourCards" v-for="tour in Tours" :key="tour.id">
-      <TourItem :placeTour="tour.title" :price="tour.price" :description="tour.description"/>
+      <TourItem :placeTour="tour.title" :price="tour.price" :description="tour.description" :tourId="tour.id" :deleteTour="deleteTour" :updateTour="updateTour"/>
     </div>
-  </div>
+  </div>    
 </template>
 
 <script>
@@ -41,13 +42,15 @@ export default {
       Tours: [],
       error: null, 
       showModal: false,
-      tour : {title: '', description: '', price: ''},
+      tour : {id: 0, title: '', description: '', price: ''},
     };
   },
   mounted() {
     axios.get('http://localhost:8084/tours')
       .then(response => {
-        this.Tours = response.data;
+        if (response.data != null){
+          this.Tours = response.data;
+        }
       })
       .catch(err => {
         this.error = 'Ошибка при загрузке задач: ' + err.message; 
@@ -67,6 +70,32 @@ export default {
             console.error('Error adding tour:', error);
           }
         },
+        async deleteTour(itemId){
+          try{
+            await axios.delete(`http://localhost:8084/tours/${itemId}`)
+            this.Tours = this.Tours.filter(item => item.id != itemId)
+          }
+          catch (err){
+            console.error('Ошибка при удалении тура:', err);
+            alert('Не удалось удалить тур: ' + err.message);
+          }
+        },
+        async updateTour(tour){
+          try{
+            if (typeof tour.price === 'string') {
+            tour.price = parseFloat(tour.price);
+            }
+            await axios.put(`http://localhost:8084/tours/${tour.id}`, tour)
+            const index = this.Tours.findIndex(item => item.id === tour.id);
+            if (index !== -1) {
+              this.Tours[index] = { ...this.Tours[index], ...tour };
+            }
+          }
+          catch(err){
+            console.error('Ошибка при обновлении тура:', err);
+            alert('Не удалось обновить тур: ' + err.message);
+          }
+        }
       }
 };
 </script>
@@ -78,7 +107,7 @@ export default {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7); /* Затемнение фона */
+    background-color: rgba(0, 0, 0, 0.7); 
     display: flex;
     justify-content: center;
     align-items: center;
@@ -90,7 +119,7 @@ export default {
     border-radius: 17px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     height: 60%;
-    width: 50%; /* Ширина модального окна */
+    width: 50%; 
 }
 .modal h2{
   color: black;
@@ -140,8 +169,4 @@ form button{
   margin-bottom: 20px;
   margin-right: 10%
 }
-.error {
-  color: red;
-}
-
 </style>

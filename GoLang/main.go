@@ -11,7 +11,7 @@ import (
 )
 
 type tour struct {
-	ID          string  `json:"id"`
+	ID          int     `json:"id"`
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
 	Price       float64 `json:"price"`
@@ -44,12 +44,15 @@ func main() {
 	router.GET("/tours", func(c *gin.Context) {
 		getTours(c, db)
 	})
-	// router.GET("/tours/:id", getTourByID)
 	router.POST("/tours", func(c *gin.Context) {
 		postTours1(c, db)
 	})
-	// router.DELETE("/tours/:id", deleteTourByID)
-	// router.PUT("/tours/:id", updateTourByID)
+	router.DELETE("/tours/:id", func(c *gin.Context) {
+		deleteTourByID(c, db)
+	})
+	router.PUT("/tours/:id", func(c *gin.Context) {
+		updateTourByID(c, db)
+	})
 
 	router.Run("localhost:8084")
 }
@@ -62,7 +65,7 @@ func getTours(c *gin.Context, db *sql.DB) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close() // Закрываем rows после завершения работы с ними
+	defer rows.Close()
 
 	for rows.Next() {
 		var t tour
@@ -71,10 +74,9 @@ func getTours(c *gin.Context, db *sql.DB) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		tours = append(tours, t) // Добавляем тур в срез
+		tours = append(tours, t)
 	}
 
-	// Проверяем на наличие ошибок после завершения обработки
 	if err := rows.Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -83,67 +85,58 @@ func getTours(c *gin.Context, db *sql.DB) {
 	c.IndentedJSON(http.StatusOK, tours)
 }
 
-func getTourByID(c *gin.Context) {
+func deleteTourByID(c *gin.Context, db *sql.DB) {
 	id := c.Param("id")
-	for _, a := range tours {
-		if a.ID == id {
-			c.IndentedJSON(http.StatusOK, a)
-			return
-		}
-	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
-}
 
-func deleteTourByID(c *gin.Context) {
-	id := c.Param("id")
-	for i, a := range tours {
-		if a.ID == id {
-			// Удаляем альбом из среза
-			tours = append(tours[:i], tours[i+1:]...)
-			c.IndentedJSON(http.StatusOK, gin.H{"message": "album deleted"})
-			return
-		}
-	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
-}
-
-func updateTourByID(c *gin.Context) {
-	id := c.Param("id")
-	var updatedTour tour
-
-	// Пробуем привязать JSON из запроса к структуре Album
-	if err := c.BindJSON(&updatedTour); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid request"})
+	result, err := db.Exec("DELETE FROM tours WHERE id = $1", id)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Ошибка при удалении тура: " + err.Error()})
 		return
 	}
 
-	// Ищем альбом по ID
-	for i, a := range tours {
-		if a.ID == id {
-			// Обновляем поля альбома
-			tours[i].Title = updatedTour.Title
-			tours[i].Description = updatedTour.Description
-			tours[i].Price = updatedTour.Price
-			c.IndentedJSON(http.StatusOK, tours[i])
-			return
-		}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Ошибка при проверке затронутых строк: " + err.Error()})
+		return
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+
+	if rowsAffected == 0 {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Тур не найден"})
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, gin.H{"message": "Тур удален"})
 }
 
-func createToursTable(db *sql.DB) {
-	query := `CREATE TABLE IF NOT EXISTS tours(
-	id SERIAL PRIMARY KEY,
-	title VARCHAR(100) NOT NULL,
-	description VARCHAR(250) NOT NULL,
-	price NUMERIC(10,2) NOT NULL,
-	img VARCHAR(255)
-	)`
-
-	_, err := db.Exec(query)
-	if err != nil {
-		log.Fatal(err)
+func updateTourByID(c *gin.Context, db *sql.DB) {
+	var updatedTour tour
+	if err := c.BindJSON(&updatedTour); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
 	}
+
+	id := c.Param("id")
+
+	// Выполняем обновление тура
+	result, err := db.Exec("UPDATE tours SET title = $1, description = $2, price = $3 WHERE id = $4", updatedTour.Title, updatedTour.Description, updatedTour.Price, id)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Ошибка при обновлении тура: " + err.Error()})
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": "Ошибка при проверке затронутых строк: " + err.Error()})
+		return
+	}
+
+	if rowsAffected == 0 {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Тур не найден"})
+		return
+	}
+
+	// Возвращаем обновленный тур
+	c.IndentedJSON(http.StatusOK, updatedTour)
 }
 
 func postTours1(c *gin.Context, db *sql.DB) {
@@ -163,5 +156,22 @@ func postTours1(c *gin.Context, db *sql.DB) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not insert tour"})
 		return
 	}
+
+	newTour.ID = pk
 	c.IndentedJSON(http.StatusCreated, newTour)
+}
+
+func createToursTable(db *sql.DB) {
+	query := `CREATE TABLE IF NOT EXISTS tours(
+	id SERIAL PRIMARY KEY,
+	title VARCHAR(100) NOT NULL,
+	description VARCHAR(250) NOT NULL,
+	price NUMERIC(10,2) NOT NULL
+
+	)`
+
+	_, err := db.Exec(query)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

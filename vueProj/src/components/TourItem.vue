@@ -2,7 +2,6 @@
   <div>
     <div class="tourCard">
       <div style="display: flex; justify-content: center;">
-        <img src="../../public/MoscowImg.avif" alt="tourImg">
       </div>
       
       <div class="info">
@@ -10,52 +9,68 @@
         <p>{{ price }} руб</p>
       </div>
 
-      <button class="btnBy" @click="showDetails">Подробнее</button>
+      <div class="wrap">
+        <button class="btnBy" @click="showDetails">Подробнее</button>
+        <button class="btnBy" @click="remove">Удалить</button>
+      </div>
+      
     </div>
 
-    <!-- Модальное окно с подробностями о туре -->
+    <!-- Вылетающая формочка доп информации о туре -->
     <div v-if="showDetailsModal" class="modal-overlay" @click="closeDetailsModal">
       <div class="modal" @click.stop>
-        <h2>Подробности о туре</h2>
-        <p><strong>Название:</strong> {{ placeTour }}</p>
-        <p><strong>Описание:</strong> {{ description }}</p>
-        <p><strong>Цена:</strong> {{ price }} руб</p>
-        <button @click="closeDetailsModal">Закрыть</button>
+        <h2 style="margin-bottom: 20px;">Подробности о туре</h2>
+        <p><strong>Название:</strong> <input class="inputDescriprion" type="text" v-model="tour.title" :placeholder="placeTour"></p>
+        <p><strong>Описание:</strong> <input class="inputDescriprion" type="text" v-model="tour.description" :placeholder="description"></p>
+        <p><strong>Цена:</strong> <input class="inputDescriprion" type="text" v-model="tour.price" :placeholder="`${price} руб`"></p>
+        <button class="btnCloseSave" @click="closeDetailsModal">Закрыть</button>
+        <button class="btnCloseSave" @click="saveEditDetails">Сохранить</button>
       </div>
     </div>
+    <!-- ---- -->
+
   </div>
 </template>
 
 <script>
+
 export default {
   props: {
-    placeTour: {
-      type: String,
-      required: true
-    },
-    price: {
-      type: String,
-      required: true
-    },
-    description: {
-      type: String,
-      required: true
-    }
+    placeTour: { type: String, required: true },
+    price: { type: String, required: true },
+    description: { type: String, required: true },
+    tourId: { type: Number, required: true },
+    deleteTour: Function,
+    updateTour: Function,
   },
   data() {
     return {
-      showDetailsModal: false // Состояние модального окна для подробностей о туре
-    };
+      showDetailsModal: false,
+      tour : {id: null, title: '', description: '', price: ''}
+    }
+  },
+  created() {
+    this.tour.id = this.tourId;
+    this.tour.title = this.placeTour;
+    this.tour.description = this.description;
+    this.tour.price = this.price;
   },
   methods: {
     showDetails() {
-      this.showDetailsModal = true; // Открыть модальное окно с подробностями о туре
+      this.showDetailsModal = true
     },
     closeDetailsModal() {
-      this.showDetailsModal = false; // Закрыть модальное окно с подробностями о туре
+      this.showDetailsModal = false
+    },
+    saveEditDetails(){
+      this.updateTour(this.tour)
+      this.closeDetailsModal()
+    },
+    remove(){
+      this.deleteTour(this.tourId)
     }
   }
-};
+}
 </script>
 
 <style>
@@ -80,10 +95,16 @@ h4 {
 
 p {
   color: black;
+  margin-bottom: 8px;
 }
 
 .info {
   margin-top: 10px;
+}
+
+.wrap{
+  display: flex;
+  justify-content: space-between;
 }
 
 .btnBy {
@@ -96,7 +117,6 @@ p {
   border: 0;
 }
 
-/* Стили для модального окна */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -109,10 +129,34 @@ p {
   justify-content: center;
 }
 
+strong{
+  margin-right: 5px;
+}
+
+.inputDescriprion{
+  padding: 8px;
+  border-radius: 17px;
+  border: 1px solid black;
+}
+
+.inputDescriprion::placeholder{
+  color: black;
+}
+
 .modal {
   background: white;
-  padding: 20px;
+  padding: 10px;
   border-radius: 8px;
   width: 300px;
+}
+
+.btnCloseSave{
+  font-size: small;
+  cursor: pointer;
+  padding: 12px;
+  margin-top: 2%;
+  border: 0;
+  border-radius: 17px;
+  margin-right: 8px;
 }
 </style>
